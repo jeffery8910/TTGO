@@ -1,0 +1,58 @@
+# .github/workflows/data-receiver.yml
+
+name: Receive IoT Data
+
+# 觸發條件：手動觸發 (workflow_dispatch)，並接收輸入參數
+on:
+  workflow_dispatch:
+    inputs:
+      temperature:
+        description: 'Temperature in Celsius'
+        required: true
+        default: '0.0'
+      humidity:
+        description: 'Relative Humidity in %'
+        required: true
+        default: '0.0'
+      ppm:
+        description: 'Air Quality in PPM'
+        required: true
+        default: '0.0'
+
+jobs:
+  update-data-file:
+    runs-on: ubuntu-latest
+    steps:
+      # 步驟 1: 將 repo 的程式碼 checkout 到虛擬機中
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          # 需要 token 才能 push 回 repo
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 步驟 2: 接收數據並更新日誌檔案
+      - name: Update data log
+        run: |
+          # 取得當前 UTC 時間
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          # 從輸入參數讀取數據
+          TEMP=${{ github.event.inputs.temperature }}
+          HUMI=${{ github.event.inputs.humidity }}
+          PPM=${{ github.event.inputs.ppm }}
+          
+          # 將數據以 JSON 格式附加到 data.log 檔案中
+          echo "{\"timestamp\": \"$TIMESTAMP\", \"temperature\": $TEMP, \"humidity\": $HUMI, \"ppm\": $PPM}" >> data.log
+          
+          # 更新一個只顯示最新數據的檔案
+          echo "{\"timestamp\": \"$TIMESTAMP\", \"temperature\": $TEMP, \"humidity\": $HUMI, \"ppm\": $PPM}" > latest_data.json
+
+      # 步驟 3: Commit 並 Push 變更
+      - name: Commit and push changes
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add data.log latest_data.json
+          # 檢查是否有變更，如果有才 commit
+          git diff --staged --quiet || git commit -m "Update sensor data log at $(date)"
+          git push
