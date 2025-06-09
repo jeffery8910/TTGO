@@ -1,0 +1,27 @@
+name: Update Device Status on Push
+
+on:
+  push:
+    branches:
+      - main  # 或者您的主要分支，如 master
+
+jobs:
+  update-gist:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get latest commit info
+        id: commit_info
+        run: |
+          COMMIT_AUTHOR=$(echo "${{ github.event.head_commit.author.name }}")
+          COMMIT_MESSAGE=$(echo "${{ github.event.head_commit.message }}" | head -n 1)
+          COMMIT_TIME=$(echo "${{ github.event.head_commit.timestamp }}" | cut -d'T' -f1)
+          JSON_PAYLOAD=$(printf '{"author":"%s","message":"%s","date":"%s"}' "$COMMIT_AUTHOR" "$COMMIT_MESSAGE" "$COMMIT_TIME")
+          echo "payload=${JSON_PAYLOAD}" >> $GITHUB_OUTPUT
+
+      - name: Update Gist
+        uses: exuanbo/actions-sync-gist@v1
+        with:
+          token: ${{ secrets.GIST_UPDATE_TOKEN }}
+          gist_id: ${{ secrets.GIST_ID }}
+          file_path: 'esp32_status.json' # Gist 中的檔名
+          content: ${{ steps.commit_info.outputs.payload }}
